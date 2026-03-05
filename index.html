@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Milagro Wine Cellar</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+  body { background: #0e0b08; color: #f5ead8; font-family: Georgia, serif; min-height: 100vh; }
+
+  .header { padding: 36px 28px 28px; border-bottom: 2px solid #3a2e1e; display: flex; justify-content: space-between; align-items: flex-end; }
+  .header-title { font-size: 56px; color: #e8c07a; letter-spacing: 6px; }
+  .header-sub { font-size: 18px; color: #9a8a6e; letter-spacing: 6px; margin-top: 7px; }
+  .total { font-size: 24px; color: #9a8a6e; }
+
+  .stats-bar { display: flex; padding: 0 28px; border-bottom: 2px solid #3a2e1e; overflow-x: auto; }
+  .stat-item { padding: 26px 32px; border-right: 1px solid #3a2e1e; flex-shrink: 0; text-align: center; }
+  .stat-dot { width: 18px; height: 18px; border-radius: 50%; display: inline-block; margin-right: 10px; vertical-align: middle; }
+  .stat-qty { font-size: 42px; color: #e8c07a; vertical-align: middle; }
+  .stat-label { font-size: 16px; color: #7a6a50; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px; }
+
+  .tabs { display: flex; border-bottom: 2px solid #3a2e1e; }
+  .tab { flex: 1; padding: 22px 8px; text-align: center; font-size: 20px; letter-spacing: 3px; text-transform: uppercase; color: #7a6a50; cursor: pointer; border: none; background: none; font-family: Georgia, serif; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tab.active { color: #e8c07a; border-bottom: 5px solid #e8c07a; }
+
+  .screen { display: none; padding: 28px; touch-action: pan-y; }
+  .screen.active { display: block; }
+
+  .search-wrap { background: #1c1810; border: 2px solid #3a2e1e; border-radius: 16px; padding: 26px 28px; margin-bottom: 30px; }
+  .search { background: none; border: none; color: #f5ead8; font-size: 30px; width: 100%; font-family: Georgia, serif; outline: none; }
+  .search::placeholder { color: #4a3a24; }
+
+  .sort-bar { display: flex; gap: 10px; padding: 14px 0 18px; }
+  .sort-pill { flex: 1; padding: 16px 8px; border: 1.5px solid #3a2e1e; border-radius: 20px; background: #161410; color: #6a5a40; font-family: Georgia, serif; font-size: 19px; letter-spacing: 1px; cursor: pointer; text-align: center; }
+  .sort-pill.active { border-color: #e8c07a; color: #e8c07a; }
+  .sort-arrow { font-size: 13px; margin-left: 4px; }
+  .bottle-row { display: grid; grid-template-columns: 18px auto 1fr; gap: 18px; align-items: center; padding: 34px 0; border-bottom: 1px solid #1e1810; }
+  .color-bar { width: 18px; border-radius: 6px; align-self: stretch; min-height: 90px; }
+  .bottle-thumb { width: 160px; height: 240px; object-fit: cover; border-radius: 10px; flex-shrink: 0; }
+  .bottle-thumb-placeholder { width: 160px; height: 240px; border-radius: 10px; background: #1c1810; border: 1px solid #2a2018; flex-shrink: 0; }
+  .bottle-name { font-size: 32px; color: #e8c07a; margin-bottom: 9px; line-height: 1.35; }
+  .bottle-name span { font-style: italic; }
+  .bottle-vintage { color: #9a8a6e; font-size: 30px; }
+  .bottle-sub { font-size: 26px; color: #8a7a5e; margin-top: 7px; }
+  .bottle-notes { font-size: 22px; color: #6a5a40; font-style: italic; margin-top: 8px; line-height: 1.5; }
+  .qty-control { display: flex; align-items: center; gap: 14px; }
+  .qty-btn { width: 70px; height: 70px; border: 2px solid #3a2e1e; border-radius: 14px; background: #1c1810; color: #9a8a6e; font-size: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .qty { font-size: 34px; color: #e8c07a; min-width: 38px; text-align: center; }
+
+  .empty { text-align: center; padding: 80px 20px; color: #4a3a24; font-size: 28px; line-height: 2.4; }
+
+  .mode-toggle { display: flex; border: 2px solid #3a2e1e; border-radius: 16px; overflow: hidden; margin-bottom: 34px; }
+  .mode-btn { flex: 1; padding: 32px; text-align: center; font-size: 26px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; border: none; background: #1c1810; font-family: Georgia, serif; color: #4a3a24; }
+  .mode-btn.active-in { background: #0f2a0f; color: #70d870; }
+  .mode-btn.active-out { background: #2a0f0f; color: #d87070; }
+
+  .upload-zone { border: 3px dashed #3a2e1e; border-radius: 18px; padding: 100px 28px; text-align: center; background: #161410; margin-bottom: 28px; cursor: pointer; position: relative; }
+  .upload-zone input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
+  .upload-icon { font-size: 96px; margin-bottom: 24px; }
+  .upload-label { font-size: 28px; color: #6a5a40; line-height: 1.7; }
+
+  .preview-img { width: 100%; max-height: 420px; object-fit: contain; border-radius: 16px; margin-bottom: 28px; }
+
+  .btn-primary { width: 100%; padding: 34px; border: 2px solid #e8c07a; background: #1c1810; color: #e8c07a; font-size: 28px; letter-spacing: 3px; text-transform: uppercase; font-family: Georgia, serif; border-radius: 16px; cursor: pointer; margin-bottom: 20px; }
+  .btn-secondary { width: 100%; padding: 34px; border: 2px solid #3a2e1e; background: #1c1810; color: #7a6a50; font-size: 28px; letter-spacing: 3px; text-transform: uppercase; font-family: Georgia, serif; border-radius: 16px; cursor: pointer; margin-bottom: 20px; }
+  .btn-green { border-color: #3a8a3a; background: #0f2a0f; color: #70d870; }
+  .btn-red { border-color: #8a2020; background: #2a0f0f; color: #d87070; }
+
+  .result-card { background: #161410; border: 2px solid #3a2e1e; border-radius: 18px; padding: 32px; margin-bottom: 28px; }
+  .result-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .result-producer { font-size: 28px; color: #e8c07a; font-style: italic; margin-bottom: 10px; }
+  .result-wine { font-size: 36px; color: #f5ead8; line-height: 1.3; }
+  .result-vintage { font-size: 62px; color: #e8c07a; font-weight: 300; padding-left: 18px; flex-shrink: 0; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .result-field-label { font-size: 15px; color: #6a5a40; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 7px; }
+  .result-field-value { font-size: 26px; color: #f5ead8; }
+  .result-notes { font-size: 24px; color: #9a8a6e; font-style: italic; line-height: 1.6; border-top: 1px solid #3a2e1e; padding-top: 24px; }
+
+  .done-wrap { text-align: center; padding: 80px 20px; }
+  .done-icon { font-size: 100px; margin-bottom: 32px; }
+  .done-msg { font-size: 34px; color: #e8c07a; margin-bottom: 18px; line-height: 1.4; }
+  .done-hint { font-size: 26px; color: #6a5a40; margin-bottom: 48px; }
+
+  .spinner { text-align: center; padding: 60px; color: #6a5a40; letter-spacing: 4px; font-size: 26px; }
+
+  .tier-prompt { font-size: 30px; color: #f5ead8; text-align: center; margin-bottom: 32px; padding-top: 8px; }
+  .tier-btn { width: 100%; padding: 30px 28px; border-radius: 16px; border: 2px solid; background: #161410; cursor: pointer; margin-bottom: 18px; display: flex; align-items: center; gap: 20px; font-family: Georgia, serif; text-align: left; }
+  .tier-btn .tier-label { font-size: 24px; letter-spacing: 2px; display: block; margin-bottom: 6px; }
+  .tier-btn .tier-desc { font-size: 18px; opacity: 0.7; display: block; }
+  .tier-btn > div { display: flex; flex-direction: column; }
+  .tier-everyday { border-color: #2dd4bf; color: #2dd4bf; }
+  .tier-weekend  { border-color: #a78bfa; color: #a78bfa; }
+  .tier-special  { border-color: #fb7185; color: #fb7185; }
+
+  .tier-badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 16px; border-radius: 20px; border: 2px solid; background: transparent; font-family: Georgia, serif; font-size: 18px; letter-spacing: 1px; cursor: pointer; }
+
+  .pick-question { font-size: 28px; color: #e8c07a; font-style: italic; margin-bottom: 28px; line-height: 1.4; }
+  .pick-btn { width: 100%; padding: 26px 28px; border: 1.5px solid #6a5a40; border-radius: 14px; background: #161410; color: #9a8a6e; font-size: 22px; font-family: Georgia, serif; text-align: left; cursor: pointer; margin-bottom: 14px; display: block; letter-spacing: 1px; }
+  .pick-btn:active { background: #1c1810; border-color: #e8c07a; color: #e8c07a; }
+  .pick-btn.skip-btn { border-color: #2a2018; color: #4a3a28; font-size: 20px; }
+
+  .pick-card-img { width: 60%; height: 480px; object-fit: cover; border-radius: 10px; margin: 0 auto 18px; display: block; }
+  .pick-card-img-placeholder { width: 100%; height: 200px; border-radius: 10px; margin-bottom: 18px; background: #1c1810; display: flex; align-items: center; justify-content: center; color: #3a2e1e; font-size: 40px; }
+  .pick-card { background: #161410; border: 2px solid #3a2e1e; border-radius: 16px; padding: 28px; margin-bottom: 22px; }
+  .pick-card-name { font-size: 28px; color: #e8c07a; font-style: italic; margin-bottom: 6px; }
+  .pick-card-wine { font-size: 24px; color: #f5ead8; margin-bottom: 14px; }
+  .pick-card-reason { font-size: 21px; color: #9a8a6e; font-style: italic; line-height: 1.6; border-top: 1px solid #3a2e1e; padding-top: 16px; }
+
+  /* ── Modal ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; pointer-events: none; }
+  .modal-overlay.open { display: block; pointer-events: auto; }
+  .modal { position: absolute; bottom: 0; left: 0; right: 0; max-height: 92vh; overflow-y: auto; background: #0e0b08; border-top: 2px solid #3a2e1e; border-radius: 24px 24px 0 0; padding: 0 0 40px; }
+  .modal-close { display: flex; justify-content: flex-end; padding: 20px 24px 0; }
+  .modal-close-btn { background: none; border: none; color: #6a5a40; font-size: 42px; cursor: pointer; line-height: 1; padding: 0 8px; }
+  .modal-img { width: 55%; max-height: 420px; object-fit: cover; border-radius: 14px; display: block; margin: 0 auto 28px; }
+  .modal-img-placeholder { width: 55%; height: 320px; border-radius: 14px; background: #1c1810; border: 1px solid #2a2018; margin: 0 auto 28px; }
+  .modal-body { padding: 0 28px; }
+  .modal-producer { font-size: 26px; color: #e8c07a; font-style: italic; margin-bottom: 6px; }
+  .modal-wine { font-size: 34px; color: #f5ead8; line-height: 1.3; margin-bottom: 6px; }
+  .modal-vintage { font-size: 28px; color: #9a8a6e; margin-bottom: 20px; }
+  .modal-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; border-top: 1px solid #2a2018; padding-top: 22px; }
+  .modal-field-label { font-size: 14px; color: #6a5a40; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+  .modal-field-value { font-size: 22px; color: #f5ead8; }
+  .modal-notes { font-size: 20px; color: #9a8a6e; font-style: italic; line-height: 1.6; margin-bottom: 28px; padding-top: 18px; border-top: 1px solid #2a2018; }
+  .modal-section-label { font-size: 15px; color: #6a5a40; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 18px; }
+  .modal-tier-row { display: flex; gap: 14px; margin-bottom: 32px; }
+  .modal-tier-btn { flex: 1; padding: 20px 10px; border: 2px solid #3a2e1e; border-radius: 14px; background: #161410; font-family: Georgia, serif; font-size: 16px; letter-spacing: 1px; text-align: center; cursor: pointer; color: #6a5a40; }
+  .modal-tier-btn.active-everyday { border-color: #2dd4bf; color: #2dd4bf; background: #0a1f1e; }
+  .modal-tier-btn.active-weekend  { border-color: #a78bfa; color: #a78bfa; background: #160f2a; }
+  .modal-tier-btn.active-special  { border-color: #fb7185; color: #fb7185; background: #2a0f14; }
+  .modal-qty-row { display: flex; align-items: center; justify-content: center; gap: 28px; margin-bottom: 32px; }
+  .modal-qty-btn { width: 76px; height: 76px; border: 2px solid #3a2e1e; border-radius: 14px; background: #1c1810; color: #9a8a6e; font-size: 42px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; }
+  .modal-qty-num { font-size: 52px; color: #e8c07a; min-width: 60px; text-align: center; }
+  .modal-qty-label { font-size: 20px; color: #6a5a40; text-align: center; margin-top: -20px; margin-bottom: 28px; }
+  .modal-save-btn { width: 100%; padding: 30px; border: 2px solid #e8c07a; background: #1c1810; color: #e8c07a; font-size: 24px; letter-spacing: 3px; text-transform: uppercase; font-family: Georgia, serif; border-radius: 14px; cursor: pointer; margin-bottom: 16px; }
+  .modal-delete-btn { width: 100%; padding: 22px; border: 2px solid #3a2e1e; background: none; color: #6a5a40; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; font-family: Georgia, serif; border-radius: 14px; cursor: pointer; }
+
+  /* ── Flavor Axes ── */
+  .flavor-section { margin: 28px 0 32px; }
+  .flavor-axis { margin-bottom: 22px; }
+  .flavor-axis-labels { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .flavor-axis-label { font-size: 14px; color: #6a5a40; letter-spacing: 2px; text-transform: uppercase; }
+  .flavor-axis-track { position: relative; height: 8px; background: #1c1810; border-radius: 4px; border: 1px solid #3a2e1e; }
+  .flavor-axis-fill { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(to right, #3a2e1e, #e8c07a); border-radius: 4px; }
+  .flavor-axis-dot { position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; background: #e8c07a; border: 2px solid #0e0b08; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(232,192,122,0.5); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">WAGNER</div>
+    <div class="header-sub">WINE CELLAR</div>
+  </div>
+  <div class="total" id="totalCount"></div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('cellar')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>CELLAR</button>
+  <button class="tab" onclick="showTab('pick')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"/><path d="M12 11v11"/><path d="M7 2h10l-1.5 9a4.5 4.5 0 0 1-7 0Z"/></svg>SELECT</button>
+  <button class="tab" onclick="showTab('scan')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>SCAN</button>
+</div>
+
+<!-- CELLAR SCREEN -->
+<div id="cellar" class="screen active">
+  <div class="search-wrap">
+    <input class="search" placeholder="Search producer, wine, region…" oninput="filterBottles(this.value)" />
+  </div>
+  <div class="sort-bar" id="sortBar">
+    <button class="sort-pill active" id="sort-producer" onclick="setSort('producer')">Producer</button>
+    <button class="sort-pill" id="sort-vintage" onclick="setSort('vintage')">Vintage</button>
+    <button class="sort-pill" id="sort-tier" onclick="setSort('tier')">Tier</button>
+    <button class="sort-pill" id="sort-color" onclick="setSort('color')">Style</button>
+  </div>
+  <div id="bottleList"></div>
+</div>
+
+<!-- SCAN SCREEN -->
+<div id="scan" class="screen">
+  <div class="mode-toggle">
+    <button class="mode-btn active-in" id="modeIn" onclick="setMode('in')">▼ Incoming</button>
+    <button class="mode-btn" id="modeOut" onclick="setMode('out')">▲ Outgoing</button>
+  </div>
+
+  <div id="step-upload">
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" accept="image/*" capture="environment" onchange="handleImage(this)" />
+      <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="color:#6a5a40;display:block;margin:0 auto 16px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <div class="upload-label">Tap to photograph or choose a bottle</div>
+    </div>
+  </div>
+
+  <div id="step-preview" style="display:none">
+    <img id="previewImg" class="preview-img" style="display:block" />
+    <button class="btn-primary" onclick="showStep('back')">NEXT: BACK LABEL</button>
+    <button class="btn-secondary" onclick="resetScan()">RETAKE</button>
+  </div>
+
+  <div id="step-back" style="display:none">
+    <img id="previewImg" class="preview-img" style="display:block;opacity:0.4" />
+    <div class="upload-zone" id="backUploadZone" style="margin-bottom:24px">
+      <input type="file" accept="image/*" capture="environment" onchange="handleBackImage(this)" />
+      <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="color:#6a5a40;display:block;margin:0 auto 16px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <div class="upload-label">Tap to photograph the back label<br><span style="font-size:18px;opacity:0.6">Optional — helps identify hard to read bottles</span></div>
+    </div>
+    <button class="btn-primary" onclick="identify()">SKIP &amp; IDENTIFY</button>
+    <button class="btn-secondary" onclick="resetScan()">START OVER</button>
+  </div>
+
+  <div id="step-back-preview" style="display:none">
+    <img id="previewImgFront" class="preview-img" style="display:block;max-height:200px" />
+    <img id="previewImgBack" class="preview-img" style="display:block;max-height:200px" />
+    <button class="btn-primary" onclick="identify()">IDENTIFY BOTTLE</button>
+    <button class="btn-secondary" onclick="showStep('back')">RETAKE BACK</button>
+  </div>
+
+  <div id="step-identifying" style="display:none">
+    <img id="previewImg2" class="preview-img" style="display:block" />
+    <div class="spinner">IDENTIFYING…</div>
+  </div>
+
+  <div id="step-result" style="display:none">
+    <div class="result-card" id="resultCard"></div>
+    <button class="btn-primary btn-green" id="commitBtn" onclick="showStep('tier')"></button>
+    <button class="btn-secondary" onclick="resetScan()">RETAKE</button>
+  </div>
+
+  <div id="step-tier" style="display:none">
+    <div class="tier-prompt">When will you drink this?</div>
+    <button class="tier-btn tier-everyday" onclick="commit('everyday')">
+      <div><span class="tier-label">EVERYDAY</span><span class="tier-desc">Easy drinking, no occasion needed</span></div>
+    </button>
+    <button class="tier-btn tier-weekend" onclick="commit('weekend')">
+      <div><span class="tier-label">WEEKEND</span><span class="tier-desc">Nice meal, good company</span></div>
+    </button>
+    <button class="tier-btn tier-special" onclick="commit('special')">
+      <div><span class="tier-label">SPECIAL OCCASION</span><span class="tier-desc">Rare, expensive, worth the wait</span></div>
+    </button>
+    <button class="btn-secondary" onclick="showStep('result')">BACK</button>
+  </div>
+
+  <div id="step-done" style="display:none">
+    <div class="done-wrap">
+      <div class="done-msg" id="doneMsg"></div>
+      <div class="done-hint">Check the Cellar tab to see your collection.</div>
+      <button class="btn-primary" onclick="resetScan()">SCAN ANOTHER</button>
+    </div>
+  </div>
+</div>
+
+<!-- SELECT SCREEN -->
+<div id="pick" class="screen">
+  <div id="pick-q0">
+    <div class="pick-question">What type of wine?</div>
+    <button class="pick-btn" onclick="pickAnswer('color', 'Red')">Red</button>
+    <button class="pick-btn" onclick="pickAnswer('color', 'White')">White</button>
+    <button class="pick-btn" onclick="pickAnswer('color', 'Rosé')">Rosé</button>
+    <button class="pick-btn" onclick="pickAnswer('color', 'Sparkling')">Sparkling</button>
+    <button class="pick-btn" onclick="pickAnswer('color', 'Orange')">Orange</button>
+    <button class="pick-btn" onclick="pickAnswer('color', 'No preference')">No Preference</button>
+  </div>
+
+  <div id="pick-q1" style="display:none">
+    <div class="pick-question">What are you in the mood for?</div>
+    <button class="pick-btn" onclick="pickAnswer('mood', 'Light and crisp')">Light &amp; Crisp</button>
+    <button class="pick-btn" onclick="pickAnswer('mood', 'Rich and full-bodied')">Rich &amp; Full-Bodied</button>
+    <button class="pick-btn" onclick="pickAnswer('mood', 'Bold and tannic')">Bold &amp; Tannic</button>
+    <button class="pick-btn" onclick="pickAnswer('mood', 'Bright and fruity')">Bright &amp; Fruity</button>
+    <button class="pick-btn" onclick="pickAnswer('mood', 'Earthy and complex')">Earthy &amp; Complex</button>
+    <button class="pick-btn" onclick="pickAnswer('mood', 'Bubbly and festive')">Bubbly &amp; Festive</button>
+    <button class="pick-btn skip-btn" onclick="pickAnswer('mood', 'No preference')">Skip</button>
+  </div>
+
+  <div id="pick-q2" style="display:none">
+    <div class="pick-question">What are you eating?</div>
+    <button class="pick-btn" onclick="pickAnswer('food', 'Red meat or game')">Red Meat / Game</button>
+    <button class="pick-btn" onclick="pickAnswer('food', 'Poultry or pork')">Poultry / Pork</button>
+    <button class="pick-btn" onclick="pickAnswer('food', 'Fish or seafood')">Fish / Seafood</button>
+    <button class="pick-btn" onclick="pickAnswer('food', 'Pasta or grains')">Pasta / Grains</button>
+    <button class="pick-btn" onclick="pickAnswer('food', 'Cheese or charcuterie')">Cheese / Charcuterie</button>
+    <button class="pick-btn" onclick="pickAnswer('food', 'Just sipping, no food')">Just Sipping</button>
+    <button class="pick-btn skip-btn" onclick="pickAnswer('food', 'No preference')">Skip</button>
+  </div>
+
+  <div id="pick-q3" style="display:none">
+    <div class="pick-question">What's the occasion?</div>
+    <button class="pick-btn" onclick="pickAnswer('occasion', 'Quiet weeknight')">Quiet Weeknight</button>
+    <button class="pick-btn" onclick="pickAnswer('occasion', 'Dinner with friends')">Dinner with Friends</button>
+    <button class="pick-btn" onclick="pickAnswer('occasion', 'Romantic dinner')">Romantic Dinner</button>
+    <button class="pick-btn" onclick="pickAnswer('occasion', 'Dinner party or gathering')">Dinner Party</button>
+    <button class="pick-btn" onclick="pickAnswer('occasion', 'Special celebration')">Special Celebration</button>
+    <button class="pick-btn skip-btn" onclick="pickAnswer('occasion', 'No preference')">Skip</button>
+  </div>
+
+  <div id="pick-q4" style="display:none">
+    <div class="pick-question">Who are you drinking with?</div>
+    <button class="pick-btn" onclick="pickAnswer('company', 'Just me')">Just Me</button>
+    <button class="pick-btn" onclick="pickAnswer('company', 'Partner or spouse')">Partner / Spouse</button>
+    <button class="pick-btn" onclick="pickAnswer('company', 'Close friends who know wine')">Wine-Savvy Friends</button>
+    <button class="pick-btn" onclick="pickAnswer('company', 'Friends who are casual wine drinkers')">Casual Wine Drinkers</button>
+    <button class="pick-btn" onclick="pickAnswer('company', 'New guests or people I want to impress')">New Guests</button>
+    <button class="pick-btn" onclick="pickAnswer('company', 'A large mixed group')">Large Mixed Group</button>
+    <button class="pick-btn skip-btn" onclick="pickAnswer('company', 'No preference')">Skip</button>
+  </div>
+
+  <div id="pick-q5" style="display:none">
+    <div class="pick-question">How adventurous are you feeling?</div>
+    <button class="pick-btn" onclick="pickAnswer('adventure', 'Give me something reliable — I know what I like')">Reliable Favourite</button>
+    <button class="pick-btn" onclick="pickAnswer('adventure', 'Open to something a little different')">Pleasantly Surprised</button>
+    <button class="pick-btn" onclick="pickAnswer('adventure', 'Push my limits — show me something unexpected')">Surprise Me</button>
+    <button class="pick-btn skip-btn" onclick="pickAnswer('adventure', 'No preference')">Skip</button>
+  </div>
+
+  <div id="pick-thinking" style="display:none">
+    <div class="spinner">CHOOSING…</div>
+    <div style="text-align:center; font-size:22px; color:#6a5a40; margin-top: -20px;">Consulting the cellar…</div>
+  </div>
+
+  <div id="pick-results" style="display:none">
+    <div class="pick-question" style="margin-bottom:28px">Tonight, try one of these:</div>
+    <div id="pickList"></div>
+    <button class="btn-secondary" onclick="resetPick()">START OVER</button>
+  </div>
+</div>
+
+<!-- BOTTLE MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal">
+    <div class="modal-close">
+      <button class="modal-close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div id="modalImgWrap"></div>
+    <div class="modal-body">
+      <div class="modal-producer" id="modalProducer"></div>
+      <div class="modal-wine" id="modalWine"></div>
+      <div class="modal-vintage" id="modalVintage"></div>
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="modal-notes" id="modalNotes" style="display:none"></div>
+
+      <div class="flavor-section" id="modalFlavorSection" style="display:none">
+        <div class="modal-section-label">Flavor Profile</div>
+        <div class="flavor-axis" id="modalBodyAxis">
+          <div class="flavor-axis-labels">
+            <span class="flavor-axis-label">Light</span>
+            <span class="flavor-axis-label">Full Body</span>
+          </div>
+          <div class="flavor-axis-track">
+            <div class="flavor-axis-fill" id="modalBodyFill"></div>
+            <div class="flavor-axis-dot" id="modalBodyDot"></div>
+          </div>
+        </div>
+        <div class="flavor-axis" id="modalFruitAxis">
+          <div class="flavor-axis-labels">
+            <span class="flavor-axis-label">Earthy</span>
+            <span class="flavor-axis-label">Fruity</span>
+          </div>
+          <div class="flavor-axis-track">
+            <div class="flavor-axis-fill" id="modalFruitFill"></div>
+            <div class="flavor-axis-dot" id="modalFruitDot"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="modalEditSection">
+        <div class="modal-section-label">Occasion</div>
+        <div class="modal-tier-row">
+          <button class="modal-tier-btn" id="mTierEveryday" onclick="setModalTier('everyday')">Everyday</button>
+          <button class="modal-tier-btn" id="mTierWeekend"  onclick="setModalTier('weekend')">Weekend</button>
+          <button class="modal-tier-btn" id="mTierSpecial"  onclick="setModalTier('special')">Special</button>
+        </div>
+
+        <div class="modal-section-label">Quantity</div>
+        <div class="modal-qty-row">
+          <button class="modal-qty-btn" onclick="changeModalQty(-1)">−</button>
+          <div class="modal-qty-num" id="modalQty"></div>
+          <button class="modal-qty-btn" onclick="changeModalQty(1)">+</button>
+        </div>
+        <div class="modal-qty-label" id="modalQtyLabel"></div>
+
+        <button class="modal-save-btn" onclick="saveModal()">SAVE CHANGES</button>
+        <button class="modal-delete-btn" onclick="deleteFromModal()">REMOVE ALL FROM CELLAR</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const COLOR_MAP = {Red:'#8B1A1A',White:'#d4c06a','Rosé':'#E8A4A4',Sparkling:'#C8E6C9',Dessert:'#D4A017',Orange:'#E8882A',Cider:'#4ade80'};
+  const TIER_MAP = {
+    everyday: { color: '#2dd4bf', label: 'Everyday' },
+    weekend:  { color: '#a78bfa', label: 'Weekend' },
+    special:  { color: '#fb7185', label: 'Special' }
+  };
+  let allBottles = [];
+  const imageCache = {};
+  let currentMode = 'in';
+  let currentImage = null;
+  let currentSort = 'producer';
+  let sortAsc = true;
+  let lastPicks = [];
+  let currentBackImage = null;
+  let currentResult = null;
+
+  // ── Init ──
+  loadBottles();
+
+  function loadBottles() {
+    document.getElementById('bottleList').innerHTML = '<div class="spinner">LOADING…</div>';
+    google.script.run.withSuccessHandler(renderBottles).withFailureHandler(err => {
+      document.getElementById('bottleList').innerHTML = '<div class="empty">Error loading cellar.<br>' + err.message + '</div>';
+    }).getBottles();
+  }
+
+  function renderBottles(bottles) {
+    allBottles = bottles;
+    filterBottles(document.querySelector('.search')?.value || '');
+    renderStats();
+  }
+
+  function applyImage(id, data) {
+    const img = document.getElementById('img-' + id);
+    const ph  = document.getElementById('ph-' + id);
+    if (img) { img.src = 'data:image/jpeg;base64,' + data; img.style.display = 'block'; }
+    if (ph)  { ph.style.display = 'none'; }
+  }
+
+  function applyDimPlaceholders(bottles) {
+    bottles.filter(b => !b.has_image).forEach(b => {
+      const ph = document.getElementById('ph-' + b.id);
+      if (ph) ph.style.opacity = '0.2';
+    });
+  }
+
+  function renderStats() {
+    const total = allBottles.reduce((s, b) => s + Number(b.qty), 0);
+    document.getElementById('totalCount').textContent = total + ' bottles';
+    const byColor = {};
+    allBottles.forEach(b => byColor[b.color] = (byColor[b.color] || 0) + Number(b.qty));
+    const bar = document.getElementById('statsBar');
+    bar.innerHTML = Object.entries(byColor).map(([color, qty]) =>
+      `<div class="stat-item">
+        <span class="stat-dot" style="background:${COLOR_MAP[color]||'#555'}"></span>
+        <span class="stat-qty">${qty}</span>
+        <div class="stat-label">${color.toUpperCase()}</div>
+      </div>`
+    ).join('');
+  }
+
+  function setSort(key) {
+    if (currentSort === key) {
+      sortAsc = !sortAsc;
+    } else {
+      currentSort = key;
+      sortAsc = true;
+    }
+    document.querySelectorAll('.sort-pill').forEach(p => {
+      p.classList.remove('active');
+      p.innerHTML = p.innerHTML.replace(/ [↑↓]$/, '');
+    });
+    const pill = document.getElementById('sort-' + key);
+    if (pill) {
+      pill.classList.add('active');
+      pill.innerHTML = pill.innerHTML.replace(/ [↑↓]$/, '') + (sortAsc ? ' ↑' : ' ↓');
+    }
+    filterBottles(document.querySelector('.search')?.value || '');
+  }
+
+  function sortBottles(bottles) {
+    const dir = sortAsc ? 1 : -1;
+    const tierOrder = { special: 0, weekend: 1, everyday: 2 };
+    return [...bottles].sort((a, b) => {
+      switch (currentSort) {
+        case 'producer':
+          return dir * (a.producer || '').localeCompare(b.producer || '');
+        case 'vintage':
+          return dir * ((parseInt(a.vintage) || 0) - (parseInt(b.vintage) || 0));
+        case 'tier':
+          return dir * ((tierOrder[a.tier] ?? 2) - (tierOrder[b.tier] ?? 2));
+        case 'color':
+          return dir * (a.color || '').localeCompare(b.color || '');
+        default:
+          return 0;
+      }
+    });
+  }
+
+  function filterBottles(q) {
+    const filtered = q
+      ? allBottles.filter(b => (b.producer+b.wine+(b.vintage||'')+(b.varietal||'')+(b.region||'')).toLowerCase().includes(q.toLowerCase()))
+      : allBottles;
+    const sorted = sortBottles(filtered);
+
+    const list = document.getElementById('bottleList');
+    if (!sorted.length) {
+      list.innerHTML = '<div class="empty">' + (allBottles.length ? 'No results.' : 'Your cellar is empty.<br>Tap Scan to add your first bottle.') + '</div>';
+      return;
+    }
+    list.innerHTML = sorted.map(b => {
+      const tier = TIER_MAP[b.tier] || TIER_MAP.everyday;
+      return `
+      <div class="bottle-row" onclick="openModal('${b.id}')" style="cursor:pointer;touch-action:manipulation">
+        <div class="color-bar" style="background:${COLOR_MAP[b.color]||'#555'}"></div>
+        <div id="ph-${b.id}" class="bottle-thumb-placeholder" style="${b.has_image ? '' : 'opacity:0.2'}"></div>
+        <img id="img-${b.id}" src="" class="bottle-thumb" style="display:none">
+        <div style="flex:1;min-width:0">
+          <div class="bottle-name">
+            <span>${b.producer}</span> ${b.wine}
+            <span class="bottle-vintage">${b.vintage||''}</span>
+          </div>
+          ${b.varietal||b.region ? `<div class="bottle-sub">${[b.varietal,b.region].filter(Boolean).join(' · ')}</div>` : ''}
+          ${b.notes ? `<div class="bottle-notes">${b.notes}</div>` : ''}
+          <div style="display:flex;align-items:center;gap:18px;margin-top:10px;flex-wrap:wrap">
+            <button class="tier-badge" onclick="event.stopPropagation();cycleTier('${b.id}', '${b.tier||'everyday'}')" style="color:${tier.color}; border-color:${tier.color}">
+              ${tier.label.toUpperCase()}
+            </button>
+            <span style="font-size:22px;color:#9a8a6e">${b.qty} ${b.qty == 1 ? 'bottle' : 'bottles'}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Apply images: from cache instantly, else fetch from server
+    sorted.filter(b => b.has_image).forEach(b => {
+      if (imageCache[b.id]) {
+        applyImage(b.id, imageCache[b.id]);
+      } else {
+        google.script.run
+          .withSuccessHandler(data => {
+            if (data) {
+              imageCache[b.id] = data;
+              applyImage(b.id, data);
+            }
+          })
+          .getImage(b.id);
+      }
+    });
+  }
+
+  function cycleTier(id, currentTier) {
+    const tiers = ['everyday', 'weekend', 'special'];
+    const next = tiers[(tiers.indexOf(currentTier) + 1) % tiers.length];
+    google.script.run.withSuccessHandler(() => loadBottles()).updateTier(id, next);
+  }
+
+  function adjustQty(id, delta) {
+    google.script.run.withSuccessHandler(() => loadBottles()).adjustQty(id, delta);
+  }
+
+  // ── Tabs ──
+  function showTab(tab) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    event.target.classList.add('active');
+    // Safety net — always unlock scroll on tab switch
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    document.getElementById('modalOverlay').classList.remove('open');
+    if (tab === 'cellar') loadBottles();
+  }
+
+  // ── Scan ──
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('modeIn').className = 'mode-btn' + (mode==='in' ? ' active-in' : '');
+    document.getElementById('modeOut').className = 'mode-btn' + (mode==='out' ? ' active-out' : '');
+  }
+
+  function compressImage(dataUrl, callback) {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const maxW = 600;
+      const scale = img.width > maxW ? maxW / img.width : 1;
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = dataUrl;
+  }
+
+  function handleImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      compressImage(e.target.result, compressed => {
+        currentImage = compressed;
+        document.getElementById('previewImg').src = currentImage;
+        showStep('preview');
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleBackImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      compressImage(e.target.result, compressed => {
+        currentBackImage = compressed;
+        document.getElementById('previewImgFront').src = currentImage;
+        document.getElementById('previewImgBack').src = currentBackImage;
+        showStep('back-preview');
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function identify() {
+    if (!currentImage) return;
+    document.getElementById('previewImg2').src = currentImage;
+    showStep('identifying');
+    const base64Front = currentImage.split(',')[1];
+    const base64Back = currentBackImage ? currentBackImage.split(',')[1] : null;
+    google.script.run
+      .withSuccessHandler(result => {
+        currentResult = result;
+        showResult(result);
+      })
+      .withFailureHandler(err => {
+        alert('Identification failed: ' + err.message);
+        showStep('preview');
+      })
+      .identifyWine(base64Front, base64Back);
+  }
+
+  function showResult(r) {
+    document.getElementById('resultCard').innerHTML = `
+      <div class="result-header">
+        <div>
+          <div class="result-producer">${r.producer}</div>
+          <div class="result-wine">${r.wine}</div>
+        </div>
+        ${r.vintage ? `<div class="result-vintage">${r.vintage}</div>` : ''}
+      </div>
+      <div class="result-grid">
+        ${r.varietal ? `<div><div class="result-field-label">Varietal</div><div class="result-field-value">${r.varietal}</div></div>` : ''}
+        ${r.region ? `<div><div class="result-field-label">Region</div><div class="result-field-value">${r.region}</div></div>` : ''}
+        ${r.color ? `<div><div class="result-field-label">Color</div><div class="result-field-value">${r.color}</div></div>` : ''}
+        ${r.confidence ? `<div><div class="result-field-label">Confidence</div><div class="result-field-value">${r.confidence}</div></div>` : ''}
+      </div>
+      ${r.notes ? `<div class="result-notes">${r.notes}</div>` : ''}
+    `;
+    const btn = document.getElementById('commitBtn');
+    btn.textContent = currentMode === 'in' ? 'ADD TO CELLAR →' : 'REMOVE FROM CELLAR';
+    btn.className = 'btn-primary ' + (currentMode === 'in' ? 'btn-green' : 'btn-red');
+    // For outgoing, skip tier step
+    btn.onclick = currentMode === 'in' ? () => showStep('tier') : () => commit(null);
+    showStep('result');
+  }
+
+  function commit(tier) {
+    if (!currentResult) return;
+    if (currentMode === 'in') {
+      google.script.run
+        .withSuccessHandler(() => {
+          const t = TIER_MAP[tier] || TIER_MAP.everyday;
+
+          document.getElementById('doneMsg').textContent = 'Added: ' + currentResult.producer + ' ' + currentResult.wine + (currentResult.vintage ? ' ' + currentResult.vintage : '');
+          showStep('done');
+        })
+        .withFailureHandler(err => alert('Error: ' + err.message))
+        .addBottle(currentResult, tier, currentImage ? currentImage.split(',')[1] : null);
+    } else {
+      google.script.run
+        .withSuccessHandler(status => {
+          if (status === 'not_found') {
+            alert('Bottle not found in cellar. Check the name matches exactly.');
+            showStep('result');
+            return;
+          }
+
+          document.getElementById('doneMsg').textContent = 'Removed: ' + currentResult.producer + ' ' + currentResult.wine;
+          showStep('done');
+        })
+        .withFailureHandler(err => alert('Error: ' + err.message))
+        .removeBottle(currentResult);
+    }
+  }
+
+  function resetScan() {
+    currentImage = null;
+    currentBackImage = null;
+    currentResult = null;
+    document.getElementById('previewImg').src = '';
+    showStep('upload');
+  }
+
+  // ── Modal ──
+  let modalBottle = null;
+  let modalQty = 0;
+  let modalTier = 'everyday';
+
+  function openModal(id, readOnly) {
+    const b = allBottles.find(b => b.id === id);
+    if (!b) return;
+    modalBottle = b;
+    modalQty = Number(b.qty);
+    modalTier = b.tier || 'everyday';
+
+    // Image
+    const imgWrap = document.getElementById('modalImgWrap');
+    const cachedImg = document.getElementById('img-' + b.id);
+    if (cachedImg && cachedImg.src && cachedImg.src !== window.location.href) {
+      imgWrap.innerHTML = `<img src="${cachedImg.src}" class="modal-img">`;
+    } else if (b.has_image) {
+      imgWrap.innerHTML = `<div class="modal-img-placeholder"></div>`;
+      google.script.run.withSuccessHandler(data => {
+        if (data) imgWrap.innerHTML = `<img src="data:image/jpeg;base64,${data}" class="modal-img">`;
+      }).getImage(b.id);
+    } else {
+      imgWrap.innerHTML = '';
+    }
+
+    document.getElementById('modalProducer').textContent = b.producer;
+    document.getElementById('modalWine').textContent = b.wine;
+    document.getElementById('modalVintage').textContent = b.vintage || '';
+
+    const meta = [];
+    if (b.color)    meta.push(`<div><div class="modal-field-label">Style</div><div class="modal-field-value">${b.color}</div></div>`);
+    if (b.varietal) meta.push(`<div><div class="modal-field-label">Varietal</div><div class="modal-field-value">${b.varietal}</div></div>`);
+    if (b.region)   meta.push(`<div><div class="modal-field-label">Region</div><div class="modal-field-value">${b.region}</div></div>`);
+    if (b.abv) {
+      let abvDisplay = String(b.abv);
+      // Convert decimal (0.145) to percentage (14.5%) if needed
+      const abvNum = parseFloat(abvDisplay.replace('%',''));
+      if (!isNaN(abvNum) && abvNum < 1) abvDisplay = (abvNum * 100).toFixed(1) + '%';
+      else if (!isNaN(abvNum) && !abvDisplay.includes('%')) abvDisplay = abvNum + '%';
+      meta.push(`<div><div class="modal-field-label">ABV</div><div class="modal-field-value">${abvDisplay}${b.abv_estimated ? '<span style="font-size:14px;color:#6a5a40;margin-left:6px">est.</span>' : ''}</div></div>`);
+    }
+    document.getElementById('modalMeta').innerHTML = meta.join('');
+
+    const notesEl = document.getElementById('modalNotes');
+    if (b.notes) { notesEl.textContent = b.notes; notesEl.style.display = 'block'; }
+    else { notesEl.style.display = 'none'; }
+
+    // Flavor axes
+    const flavorSection = document.getElementById('modalFlavorSection');
+    const hasBody  = b.body  !== '' && b.body  !== undefined && b.body  !== null;
+    const hasFruit = b.fruit !== '' && b.fruit !== undefined && b.fruit !== null;
+    if (hasBody || hasFruit) {
+      flavorSection.style.display = 'block';
+      if (hasBody) {
+        const bodyPct = Math.max(0, Math.min(100, Number(b.body)));
+        document.getElementById('modalBodyFill').style.width = bodyPct + '%';
+        document.getElementById('modalBodyDot').style.left   = bodyPct + '%';
+      }
+      if (hasFruit) {
+        const fruitPct = Math.max(0, Math.min(100, Number(b.fruit)));
+        document.getElementById('modalFruitFill').style.width = fruitPct + '%';
+        document.getElementById('modalFruitDot').style.left   = fruitPct + '%';
+      }
+    } else {
+      flavorSection.style.display = 'none';
+    }
+
+    updateModalTierUI();
+    updateModalQtyUI();
+
+    // Show or hide edit controls based on readOnly
+    const editEls = ['mTierEveryday','mTierWeekend','mTierSpecial','modalSaveBtn','modalDeleteBtn'];
+    const editSections = document.querySelectorAll('.modal-tier-row, .modal-qty-row, .modal-qty-label, .modal-save-btn, .modal-delete-btn, #modalTierLabel, #modalQtyLabel2');
+    document.getElementById('modalEditSection').style.display = readOnly ? 'none' : 'block';
+    document.getElementById('modalOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  }
+
+  function setModalTier(tier) {
+    modalTier = tier;
+    updateModalTierUI();
+  }
+
+  function updateModalTierUI() {
+    ['everyday','weekend','special'].forEach(t => {
+      const btn = document.getElementById('mTier' + t.charAt(0).toUpperCase() + t.slice(1));
+      btn.className = 'modal-tier-btn' + (modalTier === t ? ' active-' + t : '');
+    });
+  }
+
+  function changeModalQty(delta) {
+    const newQty = modalQty + delta;
+    if (newQty < 0) return;
+    modalQty = newQty;
+    updateModalQtyUI();
+  }
+
+  function updateModalQtyUI() {
+    document.getElementById('modalQty').textContent = modalQty;
+    document.getElementById('modalQtyLabel').textContent = modalQty === 1 ? 'bottle' : 'bottles';
+  }
+
+  function saveModal() {
+    if (!modalBottle) return;
+    const id = modalBottle.id;
+    const originalQty = Number(modalBottle.qty);
+    const qtyDelta = modalQty - originalQty;
+    const tierChanged = modalTier !== (modalBottle.tier || 'everyday');
+
+    const finish = () => { closeModal(); loadBottles(); };
+
+    if (modalQty === 0) {
+      // Delete entirely
+      if (confirm('Remove all bottles from cellar?')) {
+        google.script.run.withSuccessHandler(finish).adjustQty(id, -originalQty);
+      }
+      return;
+    }
+
+    if (qtyDelta !== 0 && tierChanged) {
+      google.script.run.withSuccessHandler(() => {
+        google.script.run.withSuccessHandler(finish).updateTier(id, modalTier);
+      }).adjustQty(id, qtyDelta);
+    } else if (qtyDelta !== 0) {
+      google.script.run.withSuccessHandler(finish).adjustQty(id, qtyDelta);
+    } else if (tierChanged) {
+      google.script.run.withSuccessHandler(finish).updateTier(id, modalTier);
+    } else {
+      closeModal();
+    }
+  }
+
+  function deleteFromModal() {
+    if (!modalBottle) return;
+    if (confirm('Remove all ' + modalBottle.producer + ' ' + modalBottle.wine + ' from cellar?')) {
+      google.script.run.withSuccessHandler(() => { closeModal(); loadBottles(); }).adjustQty(modalBottle.id, -Number(modalBottle.qty));
+    }
+  }
+
+  // ── Pick ──
+  let pickAnswers = {};
+
+  function pickAnswer(question, answer) {
+    pickAnswers[question] = answer;
+    if (question === 'color') {
+      document.getElementById('pick-q0').style.display = 'none';
+      document.getElementById('pick-q1').style.display = 'block';
+    } else if (question === 'mood') {
+      document.getElementById('pick-q1').style.display = 'none';
+      document.getElementById('pick-q2').style.display = 'block';
+    } else if (question === 'food') {
+      document.getElementById('pick-q2').style.display = 'none';
+      document.getElementById('pick-q3').style.display = 'block';
+    } else if (question === 'occasion') {
+      document.getElementById('pick-q3').style.display = 'none';
+      document.getElementById('pick-q4').style.display = 'block';
+    } else if (question === 'company') {
+      document.getElementById('pick-q4').style.display = 'none';
+      document.getElementById('pick-q5').style.display = 'block';
+    } else if (question === 'adventure') {
+      document.getElementById('pick-q5').style.display = 'none';
+      document.getElementById('pick-thinking').style.display = 'block';
+      google.script.run
+        .withSuccessHandler(showPickResults)
+        .withFailureHandler(err => {
+          alert('Error: ' + err.message);
+          resetPick();
+        })
+        .pickWine(pickAnswers.color, pickAnswers.mood, pickAnswers.food, pickAnswers.occasion, pickAnswers.company, pickAnswers.adventure);
+    }
+  }
+
+  function showPickResults(picks) {
+    lastPicks = picks;
+    document.getElementById('pick-thinking').style.display = 'none';
+    if (picks.error) {
+      alert(picks.error);
+      resetPick();
+      return;
+    }
+    const list = document.getElementById('pickList');
+    list.innerHTML = picks.map((p, idx) => {
+      const tier = TIER_MAP[p.tier] || TIER_MAP.everyday;
+      const imgHtml = p.image_data
+        ? `<img src="data:image/jpeg;base64,${p.image_data}" class="pick-card-img">`
+        : '';
+      return `
+        <div class="pick-card" onclick="openPickModal(${idx})" style="cursor:pointer;touch-action:manipulation">
+          ${imgHtml}
+          <div class="pick-card-name">${p.producer}</div>
+          <div class="pick-card-wine">${p.wine.replace(p.vintage || '', '').trim()}${p.vintage ? ' <span style="color:#9a8a6e">' + p.vintage + '</span>' : ''}</div>
+          <span style="color:${tier.color}; font-size:20px; letter-spacing:1px">${tier.label.toUpperCase()}</span>
+          <div class="pick-card-reason">${p.reason}</div>
+        </div>`;
+    }).join('');
+    document.getElementById('pick-results').style.display = 'block';
+  }
+
+  function openPickModal(idx) {
+    const p = lastPicks[idx];
+    if (!p || !p.bottle_id) return;
+    if (allBottles.length > 0) {
+      openModal(p.bottle_id, true);
+    } else {
+      google.script.run.withSuccessHandler(bottles => {
+        allBottles = bottles;
+        openModal(p.bottle_id, true);
+      }).getBottles();
+    }
+  }
+
+  function resetPick() {
+    pickAnswers = {};
+    document.getElementById('pick-q0').style.display = 'block';
+    document.getElementById('pick-q1').style.display = 'none';
+    document.getElementById('pick-q2').style.display = 'none';
+    document.getElementById('pick-q3').style.display = 'none';
+    document.getElementById('pick-q4').style.display = 'none';
+    document.getElementById('pick-q5').style.display = 'none';
+    document.getElementById('pick-thinking').style.display = 'none';
+    document.getElementById('pick-results').style.display = 'none';
+    document.getElementById('pickList').innerHTML = '';
+  }
+
+  function showStep(step) {
+    ['upload','preview','back','back-preview','identifying','result','tier','done'].forEach(s => {
+      document.getElementById('step-'+s).style.display = s === step ? 'block' : 'none';
+    });
+  }
+</script>
+</body>
+</html>
