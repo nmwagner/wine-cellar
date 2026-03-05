@@ -1,4 +1,4 @@
-const CACHE = 'wine-cellar-v1';
+const CACHE = 'wine-cellar-v2';
 const ASSETS = [
   '/wine-cellar/',
   '/wine-cellar/index.html',
