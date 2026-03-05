@@ -2,6 +2,12 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wine Cellar">
+<meta name="theme-color" content="#0e0b08">
+<link rel="manifest" href="manifest.json">
 <title>Milagro Wine Cellar</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -387,6 +393,19 @@
 </div>
 
 <script>
+  const API_URL = 'https://script.google.com/macros/s/AKfycbzO2E7Oz__qLilgaOyMm_Q_sOji3e0pj4kbVK4NoHVpDFDVDIbK_FKmtW8Is4gImToIvw/exec';
+
+  async function apiFetch(action, params = {}) {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, ...params })
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'API error');
+    return json.data;
+  }
+
   const COLOR_MAP = {Red:'#8B1A1A',White:'#d4c06a','Rosé':'#E8A4A4',Sparkling:'#C8E6C9',Dessert:'#D4A017',Orange:'#E8882A',Cider:'#4ade80'};
   const TIER_MAP = {
     everyday: { color: '#2dd4bf', label: 'Everyday' },
@@ -403,14 +422,19 @@
   let currentBackImage = null;
   let currentResult = null;
 
+  // Register service worker for PWA
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/wine-cellar/sw.js').catch(() => {});
+  }
+
   // ── Init ──
   loadBottles();
 
   function loadBottles() {
     document.getElementById('bottleList').innerHTML = '<div class="spinner">LOADING…</div>';
-    google.script.run.withSuccessHandler(renderBottles).withFailureHandler(err => {
+    apiFetch('getBottles').then(renderBottles).catch(err => {
       document.getElementById('bottleList').innerHTML = '<div class="empty">Error loading cellar.<br>' + err.message + '</div>';
-    }).getBottles();
+    });
   }
 
   function renderBottles(bottles) {
@@ -526,14 +550,9 @@
       if (imageCache[b.id]) {
         applyImage(b.id, imageCache[b.id]);
       } else {
-        google.script.run
-          .withSuccessHandler(data => {
-            if (data) {
-              imageCache[b.id] = data;
-              applyImage(b.id, data);
-            }
-          })
-          .getImage(b.id);
+        apiFetch('getImage', { id: b.id }).then(data => {
+          if (data) { imageCache[b.id] = data; applyImage(b.id, data); }
+        }).catch(() => {});
       }
     });
   }
@@ -541,11 +560,11 @@
   function cycleTier(id, currentTier) {
     const tiers = ['everyday', 'weekend', 'special'];
     const next = tiers[(tiers.indexOf(currentTier) + 1) % tiers.length];
-    google.script.run.withSuccessHandler(() => loadBottles()).updateTier(id, next);
+    apiFetch('updateTier', { id, tier: next }).then(() => loadBottles()).catch(err => alert('Error: ' + err.message));
   }
 
   function adjustQty(id, delta) {
-    google.script.run.withSuccessHandler(() => loadBottles()).adjustQty(id, delta);
+    apiFetch('adjustQty', { id, delta }).then(() => loadBottles()).catch(err => alert('Error: ' + err.message));
   }
 
   // ── Tabs ──
@@ -617,16 +636,15 @@
     showStep('identifying');
     const base64Front = currentImage.split(',')[1];
     const base64Back = currentBackImage ? currentBackImage.split(',')[1] : null;
-    google.script.run
-      .withSuccessHandler(result => {
+    apiFetch('identifyWine', { base64Front, base64Back })
+      .then(result => {
         currentResult = result;
         showResult(result);
       })
-      .withFailureHandler(err => {
+      .catch(err => {
         alert('Identification failed: ' + err.message);
         showStep('preview');
-      })
-      .identifyWine(base64Front, base64Back);
+      });
   }
 
   function showResult(r) {
@@ -657,29 +675,24 @@
   function commit(tier) {
     if (!currentResult) return;
     if (currentMode === 'in') {
-      google.script.run
-        .withSuccessHandler(() => {
-          const t = TIER_MAP[tier] || TIER_MAP.everyday;
-
+      apiFetch('addBottle', { wine: currentResult, tier, imageBase64: currentImage ? currentImage.split(',')[1] : null })
+        .then(() => {
           document.getElementById('doneMsg').textContent = 'Added: ' + currentResult.producer + ' ' + currentResult.wine + (currentResult.vintage ? ' ' + currentResult.vintage : '');
           showStep('done');
         })
-        .withFailureHandler(err => alert('Error: ' + err.message))
-        .addBottle(currentResult, tier, currentImage ? currentImage.split(',')[1] : null);
+        .catch(err => alert('Error: ' + err.message));
     } else {
-      google.script.run
-        .withSuccessHandler(status => {
+      apiFetch('removeBottle', { wine: currentResult })
+        .then(status => {
           if (status === 'not_found') {
             alert('Bottle not found in cellar. Check the name matches exactly.');
             showStep('result');
             return;
           }
-
           document.getElementById('doneMsg').textContent = 'Removed: ' + currentResult.producer + ' ' + currentResult.wine;
           showStep('done');
         })
-        .withFailureHandler(err => alert('Error: ' + err.message))
-        .removeBottle(currentResult);
+        .catch(err => alert('Error: ' + err.message));
     }
   }
 
@@ -710,9 +723,9 @@
       imgWrap.innerHTML = `<img src="${cachedImg.src}" class="modal-img">`;
     } else if (b.has_image) {
       imgWrap.innerHTML = `<div class="modal-img-placeholder"></div>`;
-      google.script.run.withSuccessHandler(data => {
+      apiFetch('getImage', { id: b.id }).then(data => {
         if (data) imgWrap.innerHTML = `<img src="data:image/jpeg;base64,${data}" class="modal-img">`;
-      }).getImage(b.id);
+      }).catch(() => {});
     } else {
       imgWrap.innerHTML = '';
     }
@@ -817,19 +830,19 @@
     if (modalQty === 0) {
       // Delete entirely
       if (confirm('Remove all bottles from cellar?')) {
-        google.script.run.withSuccessHandler(finish).adjustQty(id, -originalQty);
+        apiFetch('adjustQty', { id, delta: -originalQty }).then(finish).catch(err => alert('Error: ' + err.message));
       }
       return;
     }
 
     if (qtyDelta !== 0 && tierChanged) {
-      google.script.run.withSuccessHandler(() => {
-        google.script.run.withSuccessHandler(finish).updateTier(id, modalTier);
-      }).adjustQty(id, qtyDelta);
+      apiFetch('adjustQty', { id, delta: qtyDelta })
+        .then(() => apiFetch('updateTier', { id, tier: modalTier }))
+        .then(finish).catch(err => alert('Error: ' + err.message));
     } else if (qtyDelta !== 0) {
-      google.script.run.withSuccessHandler(finish).adjustQty(id, qtyDelta);
+      apiFetch('adjustQty', { id, delta: qtyDelta }).then(finish).catch(err => alert('Error: ' + err.message));
     } else if (tierChanged) {
-      google.script.run.withSuccessHandler(finish).updateTier(id, modalTier);
+      apiFetch('updateTier', { id, tier: modalTier }).then(finish).catch(err => alert('Error: ' + err.message));
     } else {
       closeModal();
     }
@@ -838,7 +851,7 @@
   function deleteFromModal() {
     if (!modalBottle) return;
     if (confirm('Remove all ' + modalBottle.producer + ' ' + modalBottle.wine + ' from cellar?')) {
-      google.script.run.withSuccessHandler(() => { closeModal(); loadBottles(); }).adjustQty(modalBottle.id, -Number(modalBottle.qty));
+      apiFetch('adjustQty', { id: modalBottle.id, delta: -Number(modalBottle.qty) }).then(() => { closeModal(); loadBottles(); }).catch(err => alert('Error: ' + err.message));
     }
   }
 
@@ -865,13 +878,10 @@
     } else if (question === 'adventure') {
       document.getElementById('pick-q5').style.display = 'none';
       document.getElementById('pick-thinking').style.display = 'block';
-      google.script.run
-        .withSuccessHandler(showPickResults)
-        .withFailureHandler(err => {
-          alert('Error: ' + err.message);
-          resetPick();
-        })
-        .pickWine(pickAnswers.color, pickAnswers.mood, pickAnswers.food, pickAnswers.occasion, pickAnswers.company, pickAnswers.adventure);
+      apiFetch('pickWine', {
+        color: pickAnswers.color, mood: pickAnswers.mood, food: pickAnswers.food,
+        occasion: pickAnswers.occasion, company: pickAnswers.company, adventure: pickAnswers.adventure
+      }).then(showPickResults).catch(err => { alert('Error: ' + err.message); resetPick(); });
     }
   }
 
@@ -907,10 +917,10 @@
     if (allBottles.length > 0) {
       openModal(p.bottle_id, true);
     } else {
-      google.script.run.withSuccessHandler(bottles => {
+      apiFetch('getBottles').then(bottles => {
         allBottles = bottles;
         openModal(p.bottle_id, true);
-      }).getBottles();
+      }).catch(() => {});
     }
   }
 
